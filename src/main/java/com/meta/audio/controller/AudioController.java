@@ -2,6 +2,12 @@ package com.meta.audio.controller;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributeView;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileOwnerAttributeView;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -12,6 +18,7 @@ import org.jaudiotagger.audio.AudioHeader;
 import org.jaudiotagger.audio.exceptions.CannotReadException;
 import org.jaudiotagger.audio.exceptions.InvalidAudioFrameException;
 import org.jaudiotagger.audio.exceptions.ReadOnlyFileException;
+import org.jaudiotagger.audio.flac.FlacFileReader;
 import org.jaudiotagger.audio.mp4.Mp4FileReader;
 import org.jaudiotagger.tag.TagException;
 import org.slf4j.Logger;
@@ -53,22 +60,39 @@ public class AudioController {
 		// MP3File mp3File = null;
 		try {
 			file.transferTo(dest);
-			Mp4FileReader mp4 = new Mp4FileReader();
-			AudioFile p4 = mp4.read(dest);
-			AudioHeader m4 = p4.getAudioHeader();
-			System.err.println(JSON.toJSONString(m4, true));
+			Path testPath = Paths.get(filePath + fileName);
+			BasicFileAttributeView basicView = Files.getFileAttributeView(testPath, BasicFileAttributeView.class);
+			BasicFileAttributes basicFileAttributes = basicView.readAttributes();
+			System.err.println("创建时间：" + new Date(basicFileAttributes.creationTime().toMillis()));
+			System.err.println("最后访问时间：" + new Date(basicFileAttributes.lastAccessTime().toMillis()));
+			System.err.println("最后修改时间：" + new Date(basicFileAttributes.lastModifiedTime().toMillis()));
+			System.err.println("文件大小：" + basicFileAttributes.size());
+			System.err.println("文件大小：" + getPrintSize(basicFileAttributes.size()));
+			FileOwnerAttributeView ownerView = Files.getFileAttributeView(testPath, FileOwnerAttributeView.class);
+			System.err.println("文件所有者：" + ownerView.getOwner());
+			String ctime = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
+					.format(new Date(basicFileAttributes.lastAccessTime().toMillis()));// 最后访问时间
+			System.err.println("最后访问时间: " + ctime);
+			String cetime = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
+					.format(new Date(basicFileAttributes.creationTime().toMillis()));// 创建时间
+			System.err.println("创建时间: " + cetime);
+			String etime = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
+					.format(new Date(basicFileAttributes.lastModifiedTime().toMillis()));// 最后修改时间
+			System.err.println("最后修改时间: " + etime);
+			System.out.println("=====================================================================");
+			FlacFileReader fileReader = new FlacFileReader();
+			AudioFile s = fileReader.read(dest);
+			AudioHeader fau = s.getAudioHeader();
+			System.err.println("f比特率: " + fau.getBitRate()); // 获得比特率
+			System.err.println("f采样率: " + fau.getSampleRate()); // 采样率
+			System.err.println("f音轨长度: " + fau.getTrackLength()); // 音轨长度
+			System.err.println("f格式: " + fau.getFormat()); // 格式，例 MPEG-1
+			System.err.println("w音轨长度String: " + getTrackString(fau.getTrackLength()));
+			System.err.println("文件名称: " + s.getFile().getName()); // 文件名称
+			System.err.println("文件大小: " + s.getFile().length() + "字节");//
+			System.err.println("文件大小: " + getPrintSize(s.getFile().length()));
 
-			System.err.println("=====================================================================");
-			// FlacFileReader fileReader = new FlacFileReader();
-			// AudioFile s = fileReader.read(dest);
-			// AudioHeader fau = s.getAudioHeader();
-			// System.err.println("f比特率: " + fau.getBitRate()); // 获得比特率
-			// System.err.println("f采样率: " + fau.getSampleRate()); // 采样率
-			// System.err.println("f音轨长度: " + fau.getTrackLength()); // 音轨长度
-			// System.err.println("f格式: " + fau.getFormat()); // 格式，例 MPEG-1
-			// System.err.println("w音轨长度String: " +
-			// getTrackString(fau.getTrackLength()));
-			System.err.println("=====================================================================");
+			System.out.println("=====================================================================");
 			// WavFileReader wavFileReader = new WavFileReader();
 			// AudioFile ss = wavFileReader.read(dest);
 			// AudioHeader wau = ss.getAudioHeader();
@@ -78,19 +102,10 @@ public class AudioController {
 			// System.err.println("w音轨长度: " + wau.getTrackLength()); // 音轨长度
 			// System.err.println("w音轨长度String: " +
 			// getTrackString(wau.getTrackLength()));
-			System.err.println("=====================================================================");
+			System.out.println("=====================================================================");
 			// mp3File = new MP3File(dest);
 			// MP3AudioHeader header = mp3File.getMP3AudioHeader();
-			// System.err.println("=====================================================================");
-			// System.err.println("文件名称: " + mp3File.getFile().getName()); //
-			// 文件名称
-			// System.err.println("文件大小: " + mp3File.getFile().length() + "字节");
-			// // 文件大小
-			// System.err.println("文件大小: " +
-			// getPrintSize(mp3File.getFile().length()));
-			// String ctime = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
-			// .format(new Date(mp3File.getFile().lastModified()));// 最后修改时间
-			// System.err.println("最后修改时间: " + ctime); // // 最后修改时间
+			// System.out.println("=====================================================================");
 			// System.err.println();
 			// System.err.println("时长String: " +
 			// header.getTrackLengthAsString()); // 获得时长
@@ -105,7 +120,7 @@ public class AudioController {
 			// MP3起始字节
 			// System.err.println("精确的音轨长度: " + header.getPreciseTrackLength());
 			// 精确的音轨长度
-			System.err.println("=====================================================================");
+			System.out.println("=====================================================================");
 			LOGGER.info("上传成功");
 			return "上传成功";
 		} catch (IOException e) {
