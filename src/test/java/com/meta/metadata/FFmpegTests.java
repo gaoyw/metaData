@@ -1,5 +1,7 @@
 package com.meta.metadata;
 
+import java.io.IOException;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,9 +20,11 @@ public class FFmpegTests {
 	 * 
 	 * @param inputPath
 	 * @return
+	 * @throws IOException
+	 * @throws InterruptedException
 	 */
 	@Test
-	public void processVideo() {
-		VideoInfoHelps.processVideo(null);
+	public void processVideo() throws IOException, InterruptedException {
+		VideoInfoHelps.processVideo("audio");
 	}
 }

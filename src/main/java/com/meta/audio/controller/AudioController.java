@@ -80,6 +80,7 @@ public class AudioController {
 					.format(new Date(basicFileAttributes.lastModifiedTime().toMillis()));// 最后修改时间
 			System.err.println("最后修改时间: " + etime);
 			System.out.println("=====================================================================");
+			System.out.println("=====================================================================");
 			FlacFileReader fileReader = new FlacFileReader();
 			AudioFile s = fileReader.read(dest);
 			AudioHeader fau = s.getAudioHeader();
