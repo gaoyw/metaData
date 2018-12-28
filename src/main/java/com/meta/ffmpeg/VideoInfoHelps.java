@@ -13,6 +13,7 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileOwnerAttributeView;
+import java.nio.file.attribute.UserPrincipal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -27,6 +28,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.alibaba.fastjson.JSON;
+import com.meta.ffmpeg.model.AudioMetadata;
+import com.meta.ffmpeg.model.VideoMetadata;
+import com.meta.filemeta.model.FileMetadata;
+import com.meta.filemeta.model.MetadataFile;
 
 /**
  * 获取视频音频的各项属性帮助类 如果需要修改或者添加属性，只要扩展下面的二维数组和修改下面getVideoInfo()方法
@@ -53,6 +60,10 @@ public class VideoInfoHelps {
 	 */
 	@PostMapping("getFile")
 	public static String processVideo(@RequestParam("file") MultipartFile file) throws IOException {
+		FileMetadata fileMetadata = new FileMetadata();
+		AudioMetadata audioMetadata = new AudioMetadata();
+		VideoMetadata videoMetadata = new VideoMetadata();
+		MetadataFile metadataFile = new MetadataFile();
 		if (file.isEmpty()) {
 			return "上传失败，请选择文件";
 		}
@@ -74,6 +85,15 @@ public class VideoInfoHelps {
 		BasicFileAttributeView basicView = Files.getFileAttributeView(testPath, BasicFileAttributeView.class);
 		BasicFileAttributes basicFileAttributes;
 		try {
+			String nameStr = fileName;
+			int n = nameStr.lastIndexOf(".");
+			String name = nameStr.substring(0, n);
+			System.err.println("namess: " + name);
+			String formatStr = fileName;
+			int f = formatStr.lastIndexOf(".");
+			String format = formatStr.substring((f + 1), formatStr.length());
+			fileMetadata.setFileName(name);
+			fileMetadata.setFileFormat(format + " 格式");
 			basicFileAttributes = basicView.readAttributes();
 			System.err.println("文件大小：" + basicFileAttributes.size());
 			System.err.println("文件大小：" + getPrintSize(basicFileAttributes.size()));
@@ -88,6 +108,12 @@ public class VideoInfoHelps {
 			String etime = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
 					.format(new Date(basicFileAttributes.lastModifiedTime().toMillis()));// 最后修改时间
 			System.err.println("最后修改时间: " + etime);
+			fileMetadata.setFileSize(getPrintSize(basicFileAttributes.size()));
+			fileMetadata.setFileOwner(ownerView.getOwner().toString() + " 文件所有者");
+			fileMetadata.setLastAccessTime(ctime + " 最后访问时间");
+			fileMetadata.setCreationTime(cetime + " 创建时间");
+			fileMetadata.setLastModifiedTime(etime + " 最后修改时间");
+			metadataFile.setFileMetadata(fileMetadata);
 		} catch (IOException e2) {
 			e2.printStackTrace();
 			System.err.println("获取文件属性失败");
@@ -133,37 +159,53 @@ public class VideoInfoHelps {
 		}
 
 		String regexDuration = "Duration: (.*?), start: (.*?), bitrate: (\\d*) kb\\/s";
-		String regexAudio = "Audio: (.*?), (\\d*)";
-		String regexVideo = "Video: (.*?), (.*?), (.*?)[,\\s]";
+		String regexAudio = "Audio: (.*?), (\\d*) Hz, (.*?), (.*?), (\\d*) kb\\/s";
+		String regexVideo = "Video: (.*?), (.*?), (\\d.*?)[,\\s]";
 		Pattern pattern = Pattern.compile(regexDuration);
 		Matcher m = pattern.matcher(sb.toString());
 		if (m.find()) {
-			int time = getTimelen(m.group(1));
-			System.out.println("提取出播放时间  === " + time);
-			System.out.println("提取出播放时间  === " + m.group(1));
-			System.out.println("开始时间        ===== " + m.group(2));
-			System.out.println("bitrate 码率 单位 kb== " + m.group(3));
+			// int time = getTimelen(m.group(1));
+			// System.out.println("提取出播放时间 === " + time);
+			// System.out.println("提取出播放时间 === " + m.group(1));
+			// System.out.println("开始时间 ===== " + m.group(2));
+			// System.out.println("bitrate 码率 单位 kb== " + m.group(3));
+			String duration = m.group(1).substring(0, m.group(1).indexOf("."));
+			videoMetadata.setDuration(duration + " 时长");
+			audioMetadata.setDuration(duration + " 时长");
 		}
 		Pattern patternAudio = Pattern.compile(regexAudio);
 		Matcher mAudio = patternAudio.matcher(sb.toString());
 		if (mAudio.find()) {
-			System.err.println("audio: " + mAudio.toString());
-			System.out.println("音频编码 === " + mAudio.group(1));
-			System.out.println("音频采样频率 === " + mAudio.group(2));
+			// System.err.println("audio: " + mAudio.toString());
+			// System.err.println("音频编码 === " + mAudio.group(1));
+			// System.err.println("音频采样频率 === " + mAudio.group(2));
+			// System.err.println("音频声道 === " + mAudio.group(3));
+			// System.err.println("音频比特率 === " + mAudio.group(5));
+			audioMetadata.setAudioCodedFormat(mAudio.group(1) + " 音频编码");
+			audioMetadata.setAudioSamplingRate(mAudio.group(2) + " Hz 音频采样率");
+			audioMetadata.setAudioVocalTract(mAudio.group(3) + " 音频声道");
+			audioMetadata.setAudioBitrate(mAudio.group(5) + " kbps 音频比特率");
+			metadataFile.setAudioMetadata(audioMetadata);
+
 		}
 		Pattern patternVideo = Pattern.compile(regexVideo);
 		Matcher mVideo = patternVideo.matcher(sb.toString());
 		if (mVideo.find()) {
-			System.err.println("video: " + mVideo.toString());
-			System.err.println("编码格式  === " + mVideo.group(1));
-			System.err.println("视频格式   === " + mVideo.group(2));
-			System.err.println("分辨率  === " + mVideo.group(3));
+			// System.err.println("video: " + mVideo.toString());
+			// System.err.println("编码格式 === " + mVideo.group(1));
+			// System.err.println("视频格式 === " + mVideo.group(2));
+			// System.err.println("分辨率 === " + mVideo.group(3));
+			videoMetadata.setVideoCodedFormat(mVideo.group(1) + " 编码格式");
+			videoMetadata.setVideoFormat(mVideo.group(2) + " 视频格式");
+			videoMetadata.setVideoResolution(mVideo.group(3) + " 分辨率");
+			metadataFile.setVideoMetadata(videoMetadata);
 		}
-		return sb.toString();
+		System.err.println(JSON.toJSONString(metadataFile, true));
+		return JSON.toJSONString(metadataFile);
 	}
 
 	// 格式:"00:00:10.68"
-	private static int getTimelen(String timelen) {
+	public static int getTimelen(String timelen) {
 		int min = 0;
 		String strs[] = timelen.split(":");
 		if (strs[0].compareTo("0") > 0) {
