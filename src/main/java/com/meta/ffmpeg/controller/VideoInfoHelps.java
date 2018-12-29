@@ -1,4 +1,4 @@
-package com.meta.ffmpeg;
+package com.meta.ffmpeg.controller;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -34,6 +34,7 @@ import com.meta.ffmpeg.model.AudioMetadata;
 import com.meta.ffmpeg.model.VideoMetadata;
 import com.meta.filemeta.model.FileMetadata;
 import com.meta.filemeta.model.MetadataFile;
+import com.meta.util.FileSizeUtil;
 
 /**
  * 获取视频音频的各项属性帮助类 如果需要修改或者添加属性，只要扩展下面的二维数组和修改下面getVideoInfo()方法
@@ -93,10 +94,10 @@ public class VideoInfoHelps {
 			int f = formatStr.lastIndexOf(".");
 			String format = formatStr.substring((f + 1), formatStr.length());
 			fileMetadata.setFileName(name);
-			fileMetadata.setFileFormat(format + " 格式");
+			fileMetadata.setFileFormat(format);
 			basicFileAttributes = basicView.readAttributes();
 			System.err.println("文件大小：" + basicFileAttributes.size());
-			System.err.println("文件大小：" + getPrintSize(basicFileAttributes.size()));
+			System.err.println("文件大小：" + FileSizeUtil.FormetFileSize(basicFileAttributes.size()));
 			FileOwnerAttributeView ownerView = Files.getFileAttributeView(testPath, FileOwnerAttributeView.class);
 			System.err.println("文件所有者：" + ownerView.getOwner());
 			String ctime = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
@@ -108,26 +109,26 @@ public class VideoInfoHelps {
 			String etime = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
 					.format(new Date(basicFileAttributes.lastModifiedTime().toMillis()));// 最后修改时间
 			System.err.println("最后修改时间: " + etime);
-			fileMetadata.setFileSize(getPrintSize(basicFileAttributes.size()));
-			fileMetadata.setFileOwner(ownerView.getOwner().toString() + " 文件所有者");
-			fileMetadata.setLastAccessTime(ctime + " 最后访问时间");
-			fileMetadata.setCreationTime(cetime + " 创建时间");
-			fileMetadata.setLastModifiedTime(etime + " 最后修改时间");
+			fileMetadata.setFileSize(FileSizeUtil.FormetFileSize(basicFileAttributes.size()));
+			fileMetadata.setFileOwner(ownerView.getOwner().toString());
+			fileMetadata.setLastAccessTime(ctime);
+			fileMetadata.setCreationTime(cetime);
+			fileMetadata.setLastModifiedTime(etime);
 			metadataFile.setFileMetadata(fileMetadata);
 		} catch (IOException e2) {
 			e2.printStackTrace();
 			System.err.println("获取文件属性失败");
 		}
-		List<String> commend = new ArrayList<String>();
+		List<String> commend = new ArrayList<String>(); // 设置此进程生成器的操作系统程序和参数
 		commend.add(ffpegUrlStr);// 可以设置环境变量从而省去这行
 		commend.add("-i");
 		commend.add(fileUrl);
-		ProcessBuilder builder = new ProcessBuilder();
+		ProcessBuilder builder = new ProcessBuilder(); // 创建操作系统进程
 		Process process = null;
 		builder.command(commend);
-		builder.redirectErrorStream(true);
+		builder.redirectErrorStream(true);// 返回进程生成器是否合并标准错误和标准输出；true为合并，false为不合并
 		try {
-			process = builder.start();
+			process = builder.start(); // 使用此进程生成器的属性启动一个新进程
 		} catch (IOException e1) {
 			e1.printStackTrace();
 			System.err.println("解析失败");
@@ -158,9 +159,14 @@ public class VideoInfoHelps {
 			System.err.println("BufferedReader，读取失败");
 		}
 
-		String regexDuration = "Duration: (.*?), start: (.*?), bitrate: (\\d*) kb\\/s";
-		String regexAudio = "Audio: (.*?), (\\d*) Hz, (.*?), (.*?), (\\d*) kb\\/s";
+		// 描述
+		String regexDuration = "Duration: (.*?), bitrate: (\\d*) kb\\/s";
+		// 视频
 		String regexVideo = "Video: (.*?), (.*?), (\\d.*?)[,\\s]";
+		// 音频
+		String regexAudio = "Audio: (.*?), (\\d*) Hz, (.*?), (.*?)";
+		// 获取比特率
+		String regexAudioBitrate = "Audio: (.*?), (\\d*) Hz, (.*?), (.*?), (\\d*) kb\\/s";
 		Pattern pattern = Pattern.compile(regexDuration);
 		Matcher m = pattern.matcher(sb.toString());
 		if (m.find()) {
@@ -170,23 +176,39 @@ public class VideoInfoHelps {
 			// System.out.println("开始时间 ===== " + m.group(2));
 			// System.out.println("bitrate 码率 单位 kb== " + m.group(3));
 			String duration = m.group(1).substring(0, m.group(1).indexOf("."));
-			videoMetadata.setDuration(duration + " 时长");
-			audioMetadata.setDuration(duration + " 时长");
+			videoMetadata.setDuration(duration);
+			audioMetadata.setDuration(duration);
 		}
-		Pattern patternAudio = Pattern.compile(regexAudio);
-		Matcher mAudio = patternAudio.matcher(sb.toString());
-		if (mAudio.find()) {
-			// System.err.println("audio: " + mAudio.toString());
-			// System.err.println("音频编码 === " + mAudio.group(1));
-			// System.err.println("音频采样频率 === " + mAudio.group(2));
-			// System.err.println("音频声道 === " + mAudio.group(3));
-			// System.err.println("音频比特率 === " + mAudio.group(5));
-			audioMetadata.setAudioCodedFormat(mAudio.group(1) + " 音频编码");
-			audioMetadata.setAudioSamplingRate(mAudio.group(2) + " Hz 音频采样率");
-			audioMetadata.setAudioVocalTract(mAudio.group(3) + " 音频声道");
-			audioMetadata.setAudioBitrate(mAudio.group(5) + " kbps 音频比特率");
+		boolean flag = true;
+		Pattern patternAudioBit = Pattern.compile(regexAudioBitrate);
+		Matcher audioBit = patternAudioBit.matcher(sb.toString());
+		if (audioBit.find()) {
+			System.out.println("进入有比特率");
+			flag = false;
+			audioMetadata.setAudioCodedFormat(audioBit.group(1));
+			audioMetadata.setAudioSamplingRate(audioBit.group(2) + " Hz");
+			audioMetadata.setAudioBitrate(audioBit.group(5) + " kbps");
+			if (("stereo").equals(audioBit.group(3))) {
+				audioMetadata.setAudioVocalTract("立体声");
+			} else if (("mono").equals(audioBit.group(3))) {
+				audioMetadata.setAudioVocalTract("单声道");
+			}
 			metadataFile.setAudioMetadata(audioMetadata);
-
+		}
+		if (flag) {
+			System.out.println("进入无比特率");
+			Pattern patternAudio = Pattern.compile(regexAudio);
+			Matcher mAudio = patternAudio.matcher(sb.toString());
+			if (mAudio.find()) {
+				audioMetadata.setAudioCodedFormat(mAudio.group(1));
+				audioMetadata.setAudioSamplingRate(mAudio.group(2) + " Hz");
+				if (("stereo").equals(mAudio.group(3))) {
+					audioMetadata.setAudioVocalTract("立体声");
+				} else if (("mono").equals(mAudio.group(3))) {
+					audioMetadata.setAudioVocalTract("单声道");
+				}
+				metadataFile.setAudioMetadata(audioMetadata);
+			}
 		}
 		Pattern patternVideo = Pattern.compile(regexVideo);
 		Matcher mVideo = patternVideo.matcher(sb.toString());
@@ -195,9 +217,9 @@ public class VideoInfoHelps {
 			// System.err.println("编码格式 === " + mVideo.group(1));
 			// System.err.println("视频格式 === " + mVideo.group(2));
 			// System.err.println("分辨率 === " + mVideo.group(3));
-			videoMetadata.setVideoCodedFormat(mVideo.group(1) + " 编码格式");
-			videoMetadata.setVideoFormat(mVideo.group(2) + " 视频格式");
-			videoMetadata.setVideoResolution(mVideo.group(3) + " 分辨率");
+			videoMetadata.setVideoCodedFormat(mVideo.group(1));
+			videoMetadata.setVideoFormat(mVideo.group(2));
+			videoMetadata.setVideoResolution(mVideo.group(3));
 			metadataFile.setVideoMetadata(videoMetadata);
 		}
 		System.err.println(JSON.toJSONString(metadataFile, true));
@@ -218,32 +240,5 @@ public class VideoInfoHelps {
 			min += Math.round(Float.valueOf(strs[2]));
 		}
 		return min;
-	}
-
-	public static String getPrintSize(long size) {
-		// 如果字节数少于1024，则直接以B为单位，否则先除于1024，后3位因太少无意义
-		if (size < 1024) {
-			return String.valueOf(size) + " B";
-		} else {
-			size = size / 1024;
-		}
-		// 如果原字节数除于1024之后，少于1024，则可以直接以KB作为单位
-		// 因为还没有到达要使用另一个单位的时候
-		// 接下去以此类推
-		if (size < 1024) {
-			return String.valueOf(size) + " KB";
-		} else {
-			size = size / 1024;
-		}
-		if (size < 1024) {
-			// 因为如果以MB为单位的话，要保留最后1位小数，
-			// 因此，把此数乘以100之后再取余
-			size = size * 100;
-			return String.valueOf((size / 100)) + "." + String.valueOf((size % 100)) + " MB";
-		} else {
-			// 否则如果要以GB为单位的，先除于1024再作同样的处理
-			size = size * 100 / 1024;
-			return String.valueOf((size / 100)) + "." + String.valueOf((size % 100)) + " GB";
-		}
 	}
 }

@@ -1,4 +1,4 @@
-package com.meta.filemeta.util;
+package com.meta.config;
 
 import javax.servlet.MultipartConfigElement;
 
